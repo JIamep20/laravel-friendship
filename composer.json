@@ -1,0 +1,38 @@
+{
+    "name": "lamer1/laravel-friendship",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "JIamep20",
+            "email": "cobectb16@gmail.com"
+        }
+    ],
+    "minimum-stability": "dev",
+    "require": {},
+    "require-dev": {
+        "laravel/laravel": "5.4",
+        "fzaninotto/faker": "~1.4",
+        "phpunit/phpunit": "~5.7"
+    },
+    "scripts": {
+        "tests": [
+            "phpunit"
+        ]
+    },
+    "autoload-dev": {
+        "classmap": [
+            "tests",
+            "tests/database/migrations",
+            "src/database/migrations"
+        ],
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Lamer1\\LaravelFriendships\\": "src/"
+        }
+    }
+}
