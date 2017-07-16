@@ -16,7 +16,6 @@ trait Friendshipable
      */
     public $friendshipModel = Friendship::class;
 
-
     /**
      * @return HasMany
      */
@@ -34,15 +33,36 @@ trait Friendshipable
     }
 
     /**
-     * @param Friendshipable|Model $recipient
-     * @param boolean|null $status
-     * @param Friendshipable|int $statusInitiator
-     * @return mixed
+     * @param $recipient
+     * @param null|int $status
+     * @param boolean $wt
+     * @param null|int $statusInitiator
+     * @return Friendship
      */
-    public function statused($recipient, $status = null, $statusInitiator = null)
+    public function getFriendship($recipient, $status = null, $wt = false, $statusInitiator = null)
     {
-        $friendshipModel = $this->friendshipModel;
-        return $friendshipModel::between($this, $recipient)->whereStatus($status)->whereStatusInitiator($statusInitiator)->exists();
+        $res = $this->getFriendshipQuery(...func_get_args())->first();
+        if ($res) {
+            $res->setUser($this);
+        }
+        return $res;
+    }
+
+    /**
+     * @param $withModel
+     * @param null $status
+     * @param boolean $wt
+     * @param int $statusInitiator
+     * @return Builder|Friendship
+     */
+    public function getFriendshipQuery($withModel, $status = null, $wt = false, $statusInitiator = null)
+    {
+        $model = $this->friendshipModel;
+        $query = $model::between($this, $withModel)->whereStatus($status)->whereStatusInitiator($statusInitiator);
+        if ($wt) {
+            $query->withTrashed();
+        }
+        return $query;
     }
 
     /**
@@ -51,7 +71,9 @@ trait Friendshipable
      */
     public function getFriendships($status = null)
     {
-        return $this->getFriendshipsQuery($status)->get();
+        return $this->getFriendshipsQuery(...func_get_args())->get()->each(function ($item) {
+            $item->setUser($this);
+        });
     }
 
     /**
@@ -67,14 +89,13 @@ trait Friendshipable
                 $q->whereSender($this)->orWhereRecipient($this);
             })
             ->whereStatus($status);
-
     }
 
     /**
      * @param int $status
      * @return Collection
      */
-    public function getFriends($status = Friendship::ACCEPTED)
+    public function getFriends($status = Friendship::STATUS_ACCEPTED)
     {
         return $this->getFriendsQuery($status)->get();
     }
@@ -91,176 +112,55 @@ trait Friendshipable
     }
 
     /**
+     * @param null|int $status
+     * @return int
+     */
+    public function getFriendshipsCount($status = null)
+    {
+        return $this->getFriendshipsQuery($status)->count();
+    }
+
+    /**
+     * @param Friendshipable|Model $recipient
+     * @param int $status
+     * @param boolean $wt
+     * @param Friendshipable|int $statusInitiator
+     * @return mixed
+     */
+    public function statused($recipient, $status = null, $wt = false, $statusInitiator = null)
+    {
+        return $this->getFriendshipQuery(...func_get_args())->exists();
+    }
+
+    /**
      * @param Model $friend
      * @param int $status
      * @return Friendship|boolean
      */
-    public function makeFriendship($friend, $status = Friendship::PENDING)
+    public function makeFriendship($friend, $status = Friendship::STATUS_PENDING)
     {
         if ($friendship = $this->getFriendship($friend, null, true)) {
-            if ($this->callValidateMethod(__FUNCTION__, [$friendship]) == false) {
+            if (!$friendship->validateFriendshipChanging(['status' => $status])) {
                 return false;
             }
             if ($friendship->trashed()) {
                 $friendship->restore();
             }
-            return $this->updateFriendship($friendship, [
+            $friendship->update([
                 'status' => $status
             ]);
+            return $friendship;
         }
         $friendshipModel = $this->friendshipModel;
         /** @var Friendship $friendship */
-        $friendship = new $friendshipModel;
+        $friendship = new $friendshipModel([
+            'status' => $status
+        ], $this);
 
         $friendship->sender()->associate($this);
         $friendship->recipient()->associate($friend);
 
-        return $this->updateFriendship($friendship, [
-            'sender_id' => $this->getKey(),
-            'recipient_id' => $friend->getKey(),
-            'status' => $status
-        ]);
-    }
-
-    /**
-     * @param $recipient
-     * @param null $status
-     * @param bool $wt
-     * @return Friendship
-     */
-    public function getFriendship($recipient, $status = null, $wt = false)
-    {
-        $query = $this->getFriendshipQuery($recipient, $status);
-        if ($wt) {
-            $query->withTrashed();
-        }
-        return $query->first();
-    }
-
-    /**
-     * @param $withModel
-     * @param null $status
-     * @return Builder
-     */
-    public function getFriendshipQuery($withModel, $status = null)
-    {
-        $model = $this->friendshipModel;
-        return $model::between($this, $withModel)->whereStatus($status);
-    }
-
-    /**
-     * @param string $methodName
-     * @param array $params
-     * @return bool
-     */
-    protected function callValidateMethod($methodName, $params = [])
-    {
-        $methodName = 'validate' . ucfirst($methodName);
-        if (!method_exists($this, $methodName)) {
-            return true;
-        }
-        return call_user_func_array([$this, $methodName], $params);
-    }
-
-    /**
-     * @param Friendship $friendship
-     * @param array|mixed $attributes
-     * @param boolean $restoreIfTrashed
-     *
-     * @return Friendship
-     */
-    public function updateFriendship($friendship, $attributes = [], $restoreIfTrashed = false)
-    {
-        if (!$friendship) {
-            return false;
-        }
-        if ($this->callValidateMethod(__FUNCTION__, [$friendship, $attributes]) == false) {
-            return false;
-        }
-        if ($restoreIfTrashed && $friendship->trashed()) {
-            $friendship->restore();
-        }
-        $attributes = is_array($attributes) ? $attributes : [$attributes];
-        if (!array_key_exists('status_initiator', $attributes)) {
-            $attributes['status_initiator'] = $this->getKey();
-        }
-        $friendship->fill($attributes)->save();
+        $friendship->update();
         return $friendship;
-    }
-
-    /**
-     * @param Friendship $friendship
-     *
-     * @return boolean
-     */
-    public function validateMakeFriendship($friendship)
-    {
-        if ($friendship->status_initiator == $this->getKey()) {
-            return true;
-        }
-        if ($friendship->isStatus([Friendship::BLOCKED]) || $friendship->trashed()) {
-            return false;
-        }
-        return true;
-    }
-
-    /**
-     * @param Friendshipable|Model $recipient
-     * @return bool|null
-     */
-    public function deleteFriendshipByRecipient($recipient)
-    {
-        return $this->deleteFriendship($this->getFriendship($recipient));
-    }
-
-    /**
-     * @param Friendship $friendship
-     * @return bool|null
-     * @throws \Exception
-     */
-    public function deleteFriendship($friendship)
-    {
-        if (!$friendship) {
-            return true;
-        }
-        if ($this->callValidateMethod(__FUNCTION__, [$friendship]) == false) {
-            return false;
-        }
-        $this->updateFriendship($friendship);
-        if ($friendship->delete()) {
-            return $friendship;
-        }
-        return false;
-    }
-
-    /**
-     * @param $recipient
-     * @param $attributes
-     * @return bool|Model
-     */
-    public function updateFriendshipByRecipient($recipient, $attributes = [])
-    {
-        return $this->updateFriendship($this->getFriendship($recipient), $attributes);
-    }
-
-    /**
-     * @param Friendship $friendship
-     *
-     * @return boolean
-     */
-    public function validateUpdateFriendship($friendship)
-    {
-        if ($friendship->status_initiator == $this->getKey()) {
-            return true;
-        }
-        if ($friendship->isStatus([Friendship::BLOCKED]) || $friendship->trashed()) {
-            return false;
-        }
-        return true;
-    }
-
-    public function getFriendshipsCount($status = null)
-    {
-        return $this->getFriendshipsQuery($status)->count();
     }
 }

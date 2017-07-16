@@ -18,7 +18,7 @@ class CreateFriendshipsTable extends Migration
             $table->tinyInteger('status')->unsigned();
             $table->integer('sender_id')->unsigned();
             $table->integer('recipient_id')->unsigned();
-            $table->integer('status_initiator')->unsigned()->default(0);
+            $table->integer('status_initiator')->unsigned();
             
             $table->timestamps();
             $table->softDeletes();
