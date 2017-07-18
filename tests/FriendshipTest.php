@@ -61,7 +61,7 @@ class FriendshipTest extends TestCase
         $this->assertEquals(Friendship::STATUS_ACCEPTED, $friendship->getAttribute('status'));
         $this->assertEquals($sender->getKey(), $friendship->getAttribute('status_initiator'));
 
-        $friendship->update(['status' => Friendship::STATUS_DENIED]);
+        $this->assertEquals(true, $friendship->update(['status' => Friendship::STATUS_DENIED]));
         $friendship = $recipient->getFriendship($sender);
 
         $this->assertEquals(Friendship::STATUS_DENIED, $friendship->getAttribute('status'));
@@ -96,5 +96,22 @@ class FriendshipTest extends TestCase
         $this->assertEquals(false, $friendship->update(['status' => Friendship::STATUS_ACCEPTED]));
         $this->assertEquals(false, $friendship->update(['status' => Friendship::STATUS_DENIED]));
         $this->assertEquals(true, $friendship->update(['status' => Friendship::STATUS_BLOCKED]));
+    }
+    
+    public function test_user_can_send_new_request_if_denied()
+    {
+        $sender = $this->cu();
+        $recipient = $this->cu();
+        
+        $sender->makeFriendship($recipient);
+        
+        $friendship = $recipient->getFriendship($sender);
+        $this->assertEquals(true, $friendship->update(['status' => Friendship::STATUS_DENIED]));
+        
+        $friendship = $sender->getFriendship($recipient);
+        $this->assertEquals(Friendship::STATUS_DENIED, $friendship->getAttribute('status'));
+        
+        $this->assertEquals(true, $friendship->update(['status' => Friendship::STATUS_PENDING]));
+        $this->assertEquals(false, $friendship->update(['status' => Friendship::STATUS_ACCEPTED]));
     }
 }

@@ -8,7 +8,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Auth;
 use Lamer1\LaravelFriendships\Traits\Friendshipable;
-use League\Flysystem\Exception;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 
 /**
@@ -52,7 +51,7 @@ class Friendship extends Model
     public static $statusChangeOpponentRules = [
         self::STATUS_PENDING => self::ALL_STATUSES,
         self::STATUS_ACCEPTED => self::ALL_STATUSES,
-        self::STATUS_DENIED => [self::STATUS_PENDING, self::STATUS_BLOCKED, self::STATUS_DENIED],
+        self::STATUS_DENIED => [self::STATUS_PENDING, self::STATUS_BLOCKED],
         self::STATUS_BLOCKED => [],
     ];
 
@@ -205,14 +204,13 @@ class Friendship extends Model
     /**
      * @param array $options
      * @return bool
-     * @throws Exception
      */
     public function save(array $options = [])
     {
-        if (!in_array($this->getUser()->getKey(), [$this->sender_id, $this->recipient_id])) {
-            throw new Exception("The value of 'status_initiator' must be as 'sender_id' or 'recipient_id'");
+        if ($this->validateFriendshipChanging()) {
+            return parent::save($options);
         }
-        return parent::save($options);
+        return false;
     }
 
     /**
@@ -229,17 +227,13 @@ class Friendship extends Model
      * @param array $attributes
      * @param array $options
      * @return bool
-     * @throws Exception
      */
     public function updateFriendship(array $attributes = [], array $options = [])
     {
         if (!array_key_exists('status_initiator', $attributes)) {
             $attributes['status_initiator'] = $this->getUser()->getKey();
         }
-        if (!$this->validateFriendshipChanging($attributes))
-        {
-            return false;
-        }
+
         return $this->fill($attributes)->save($options);
     }
 
@@ -250,25 +244,45 @@ class Friendship extends Model
     }
 
     /**
-     * @param array $attributes
      * @return bool
      */
-    public function validateFriendshipChanging(array $attributes = [])
+    public function validateFriendshipChanging()
     {
-        $nextStatus = array_key_exists('status', $attributes) ? $attributes['status'] : null;
-        if ($nextStatus && $this->status && ($nextStatus != $this->status)) {
-            $rulesSet =
-                $this->status_initiator == $this->getUser()->getKey() ?
-                    $this->statusChangeRules($this->status, 'statusChangeSelfRules') :
-                    $this->statusChangeRules($this->status, 'statusChangeOpponentRules');
-            if (
-                $rulesSet !== static::ALL_STATUSES &&
-                !in_array($nextStatus, $rulesSet)
-            ) {
+        $changedAttributes = $this->getDirty();
+        foreach ($changedAttributes as $key => $value) {
+            $methodName = 'validate' . ucfirst(camel_case($key));
+            if (method_exists($this, $methodName) && !call_user_func_array([$this, $methodName], [$key, $value])) {
                 return false;
             }
         }
+        return true;
+    }
 
+    protected function validateStatusInitiator()
+    {
+        if (!in_array($this->getUser()->getKey(), [$this->sender_id, $this->recipient_id])) {
+            return false;
+        }
+        return true;
+    }
+
+    protected function validateStatus()
+    {
+        $oldStatus = $this->getOriginal('status');
+
+        if (!$oldStatus) {
+            return true;
+        }
+
+        $oldStatusInitiator = $this->getOriginal('status_initiator');
+
+        $rulesSet =
+            $this->getUser()->getKey() == $oldStatusInitiator ?
+                $this->statusChangeRules($oldStatus, 'statusChangeSelfRules') :
+                $this->statusChangeRules($oldStatus, 'statusChangeOpponentRules');
+        if ($rulesSet !== self::ALL_STATUSES && !in_array($this->status, $rulesSet)) {
+            return false;
+        }
         return true;
     }
 
