@@ -21,7 +21,7 @@ trait Friendshipable
      */
     public function friendsOfModel()
     {
-        return $this->hasMany($this->friendshipModel, 'sender_id');
+        return $this->hasMany($this->getFriendshipClassName(), 'sender_id');
     }
 
     /**
@@ -29,7 +29,7 @@ trait Friendshipable
      */
     public function modelIsFriendOf()
     {
-        return $this->hasMany($this->friendshipModel, 'recipient_id');
+        return $this->hasMany($this->getFriendshipClassName(), 'recipient_id');
     }
 
     /**
@@ -57,7 +57,7 @@ trait Friendshipable
      */
     public function getFriendshipQuery($withModel, $status = null, $wt = false, $statusInitiator = null)
     {
-        $model = $this->friendshipModel;
+        $model = $this->getFriendshipClassName();
         $query = $model::between($this, $withModel)->whereStatus($status)->whereStatusInitiator($statusInitiator);
         if ($wt) {
             $query->withTrashed();
@@ -82,7 +82,7 @@ trait Friendshipable
      */
     public function getFriendshipsQuery($status = null)
     {
-        $model = $this->friendshipModel;
+        $model = $this->getFriendshipClassName();
         /** @var Friendship|Builder $query */
         return $model
             ::where(function ($q) {
@@ -140,7 +140,7 @@ trait Friendshipable
     public function makeFriendship($friend, $status = Friendship::STATUS_PENDING)
     {
         if ($friendship = $this->getFriendship($friend, null, true)) {
-            if (!$friendship->validateFriendshipChanging(['status' => $status])) {
+            if (!$friendship->validateFriendshipChanging()) {
                 return false;
             }
             if ($friendship->trashed()) {
@@ -151,7 +151,7 @@ trait Friendshipable
             ]);
             return $friendship;
         }
-        $friendshipModel = $this->friendshipModel;
+        $friendshipModel = $this->getFriendshipClassName();
         /** @var Friendship $friendship */
         $friendship = new $friendshipModel([
             'status' => $status
@@ -162,5 +162,10 @@ trait Friendshipable
 
         $friendship->update();
         return $friendship;
+    }
+
+    public function getFriendshipClassName()
+    {
+        return Friendship::class;
     }
 }
