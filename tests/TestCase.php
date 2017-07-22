@@ -2,7 +2,6 @@
 
 namespace Tests;
 
-use App\User;
 use Faker\Generator;
 use Illuminate\Database\Eloquent\Factory;
 use Illuminate\Database\Eloquent\Model;

@@ -2,7 +2,6 @@
 
 namespace Lamer1\LaravelFriendships\Models;
 
-use App\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
