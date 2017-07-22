@@ -244,11 +244,12 @@ class Friendship extends Model
     }
 
     /**
+     * @param array $attributesToCheck
      * @return bool
      */
-    public function validateFriendshipChanging()
+    public function validateFriendshipChanging(array $attributesToCheck = [])
     {
-        $changedAttributes = $this->getDirty();
+        $changedAttributes = $attributesToCheck ? $attributesToCheck : $this->getDirty();
         foreach ($changedAttributes as $key => $value) {
             $methodName = 'validate' . ucfirst(camel_case($key));
             if (method_exists($this, $methodName) && !call_user_func_array([$this, $methodName], [$key, $value])) {

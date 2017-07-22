@@ -140,16 +140,20 @@ trait Friendshipable
     public function makeFriendship($friend, $status = Friendship::STATUS_PENDING)
     {
         if ($friendship = $this->getFriendship($friend, null, true)) {
-            if (!$friendship->validateFriendshipChanging()) {
+            $attributes = [
+                'status' => $status
+            ];
+            if (!$friendship->validateFriendshipChanging($attributes)) {
                 return false;
             }
             if ($friendship->trashed()) {
                 $friendship->restore();
             }
-            $friendship->update([
-                'status' => $status
-            ]);
-            return $friendship;
+            $updateResult = $friendship->update($attributes);
+            if ($updateResult) {
+                return $friendship;
+            }
+            return false;
         }
         $friendshipModel = $this->getFriendshipClassName();
         /** @var Friendship $friendship */
