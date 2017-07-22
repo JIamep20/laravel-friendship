@@ -5,7 +5,7 @@ namespace Lamer1\LaravelFriendships\Traits;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Lamer1\LaravelFriendships\Models\Friendship;
 
 trait Friendshipable
@@ -16,19 +16,19 @@ trait Friendshipable
     public $friendshipModel = Friendship::class;
 
     /**
-     * @return HasMany
+     * @return MorphMany
      */
     public function friendsOfModel()
     {
-        return $this->hasMany($this->getFriendshipClassName(), 'sender_id');
+        return $this->morphMany($this->getFriendshipClassName(), 'sender');
     }
 
     /**
-     * @return HasMany
+     * @return morphMany
      */
     public function modelIsFriendOf()
     {
-        return $this->hasMany($this->getFriendshipClassName(), 'recipient_id');
+        return $this->morphMany($this->getFriendshipClassName(), 'recipient');
     }
 
     /**

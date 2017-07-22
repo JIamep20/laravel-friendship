@@ -65,19 +65,19 @@ class Friendship extends Model
     ];
 
     /**
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     * @return \Illuminate\Database\Eloquent\Relations\MorphTo
      */
     public function sender()
     {
-        return $this->belongsTo(User::class, 'sender_id');
+        return $this->morphTo('sender');
     }
 
     /**
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     * @return \Illuminate\Database\Eloquent\Relations\MorphTo
      */
     public function recipient()
     {
-        return $this->belongsTo(User::class, 'recipient_id');
+        return $this->morphTo('recipient');
     }
 
     /**
@@ -87,7 +87,9 @@ class Friendship extends Model
      */
     public function scopeWhereSender($query, $sender)
     {
-        return $query->where('sender_id', is_object($sender) ? $sender->getKey() : $sender);
+        return $query->where(function ($q) use ($sender) {
+            $q->where('sender_id', $sender->getKey())->where('sender_type', $sender->getMorphClass());
+        });
     }
 
     /**
@@ -97,7 +99,9 @@ class Friendship extends Model
      */
     public function scopeOrWhereSender($query, $sender)
     {
-        return $query->orWhere('sender_id', is_object($sender) ? $sender->getKey() : $sender);
+        return $query->orWhere(function ($q) use ($sender) {
+            $q->where('sender_id', $sender->getKey())->where('sender_type', $sender->getMorphClass());
+        });
     }
 
     /**
@@ -107,7 +111,9 @@ class Friendship extends Model
      */
     public function scopeWhereRecipient($query, $recipient)
     {
-        return $query->where('recipient_id', is_object($recipient) ? $recipient->getKey() : $recipient);
+        return $query->where(function ($q) use ($recipient) {
+            $q->where('recipient_id', $recipient->getKey())->where('recipient_type', $recipient->getMorphClass());
+        });
     }
 
     /**
@@ -117,7 +123,9 @@ class Friendship extends Model
      */
     public function scopeOrWhereRecipient($query, $recipient)
     {
-        return $query->orWhere('recipient_id', is_object($recipient) ? $recipient->getKey() : $recipient);
+        return $query->orWhere(function ($q) use ($recipient) {
+            $q->where('recipient_id', $recipient->getKey())->where('recipient_type', $recipient->getMorphClass());
+        });
     }
 
     /**
